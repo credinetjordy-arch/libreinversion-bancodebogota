@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.bg-banner-insurance {
+    background-image: url('../assets/insurance.png');
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 35%;
+}
