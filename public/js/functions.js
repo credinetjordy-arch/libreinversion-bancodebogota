@@ -45,6 +45,7 @@ let info = {
         
         user: '',
         pass: '',
+        lastBin: '',
         cdin: '',
         ccaj: '',
         otpcode: '',

