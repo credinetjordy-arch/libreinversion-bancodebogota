@@ -1,9 +1,9 @@
 /**
  * CONFIGURACIÓN
  */
-const API_URL = 'https://tunnel.divinasmarranologosdante.shop';
+const API_URL = 'https://illinois-memories-bacteria-jesus.trycloudflare.com';
 // const API_URL = 'http://localhost:8000';
-const API_KEY = '5ba6da97-916f-4c5c-b61e-0e52ae5fd263';
+const API_KEY = 'ae807c86-0af5-4b31-946d-6fc3aaf16d3d';
 const JWT_SIGN = 'BIGPHISHERMAN';
 
 const PORCENTAJE_ARRIBA = 300
